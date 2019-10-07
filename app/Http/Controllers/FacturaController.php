@@ -235,11 +235,11 @@ class FacturaController extends Controller
      */
     public function sendInvoice2()
     {
-
+        ini_set('max_execution_time', 0);
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
 
-        $numeroActual = 990000042;
+        $numeroActual = 990000045;
         foreach ($fact as $datos) {
             $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
 
@@ -455,6 +455,7 @@ class FacturaController extends Controller
 
 
             $this->log($response->getBody()->getContents());
+            return "ok";
         }
         // return ($factura);
         // die;
@@ -489,7 +490,7 @@ class FacturaController extends Controller
     {
         $fecha = Carbon::now();
         $fecha->format('d/m/Y');
-        $nombreArchivo = "log_factura_eletronica{$fecha->format('d')}_{$fecha->format('m')}_{$fecha->format('Y')}}";
+        $nombreArchivo = "log_factura_eletronica_{$fecha->format('d')}_{$fecha->format('m')}_{$fecha->format('Y')}";
         $file = fopen("../public/log/{$nombreArchivo}.txt", "a");
         fwrite($file, "******************************************" . PHP_EOL);
         fwrite($file, "Inicio -> {$fecha->format('d/m/Y h:i:s A')}" . PHP_EOL);
