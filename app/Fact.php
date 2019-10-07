@@ -8,7 +8,7 @@ class Fact extends Model
 {
      //
      public $connection = 'ibg_100_7';
-     protected $table = "fact";
+     protected $table = "vp_fact";
      protected $primarykey = "ct_consec";
      public $timestamps = false;     
     //  protected $fillable = ['nombre', 'ciudad'];

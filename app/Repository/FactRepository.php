@@ -20,7 +20,7 @@ class FactRepository
     {
         // return (Fact::where('fact_cadv_numdoc','11079669')->get());
         $facturas = Fact::on('ibg_100_7')
-            ->join('fact_detalle', 'fact_cadv_numdoc', '=', 'deta_fact_numdoc')
+            ->join('vp_fact_detalle', 'fact_cadv_numdoc', '=', 'deta_fact_numdoc')
             ->whereRaw("to_char(fact_feccrea,'%m%d%Y') ='09262019'")
             ->select('*')
             ->get();
@@ -33,7 +33,7 @@ class FactRepository
         // return (Fact::where('fact_cadv_numdoc','11079669')->get());
         $facturas = Fact::on('ibg_100_7')
             ->whereRaw("to_char(fact_feccrea,'%m%d%Y') ='09262019'")
-            ->limit(2)
+            ->limit(14)
             ->get();
 
         return $facturas;

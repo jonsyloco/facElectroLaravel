@@ -239,7 +239,7 @@ class FacturaController extends Controller
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
 
-        $numeroActual = 990000045;
+        $numeroActual = 990000061;
         foreach ($fact as $datos) {
             $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
 
@@ -311,6 +311,7 @@ class FacturaController extends Controller
                 $cliente['dir'] = utf8_encode(trim($cliData[5]));
                 $cliente['barrio'] = utf8_encode(trim($cliData[6]));
                 $cliente['telefono'] = trim($cliData[7]);
+                $cliente['email'] = empty(trim($cliData[10])) ? 'CLIENTES@IBG.COM.CO' : trim($cliData[10]); //email by wagner
                 $cliente['dv'] = trim($cliData[12]);
                 $cliente['tpDoc'] = trim($cliData[11]);
                 $cliente['nombres'] = trim($cliData[13]);
@@ -455,8 +456,8 @@ class FacturaController extends Controller
 
 
             $this->log($response->getBody()->getContents());
-            return "ok";
         }
+        return "ok";
         // return ($factura);
         // die;
 
