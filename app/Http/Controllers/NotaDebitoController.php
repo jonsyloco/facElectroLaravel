@@ -217,8 +217,9 @@ class NotaDebitoController extends Controller
         ini_set('max_execution_time', '0');
 
         $notas = NotaDebitoRepository::getNotasEnviar();
+        // print_r($notas);die;
 
-        $numeroActual = 63;
+        $numeroActual = 65;
 
         $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
 

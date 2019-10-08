@@ -239,9 +239,10 @@ class FacturaController extends Controller
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
 
-        $numeroActual = 990000061;
+        $numeroActual = 990000087;
         foreach ($fact as $datos) {
-            $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
+            // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
+            $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
 
             $token = "FHMoDO27s4eFseLijLiDibSjKuAn3r1mBHmrPcaaZOZbz1ohy4U9kYfb6fXsSYrrWIFfdwVCCYH2MZpl";
 
@@ -259,7 +260,8 @@ class FacturaController extends Controller
             /**datos del certificado */
             $factura['certificate_name'] = "8900016003.p12";
             $factura['certificate_pass'] = "7pC9u9bCEV";
-            $factura['sw_identifier'] = "c8784166-6c81-4361-99aa-15c28a523d41";
+            // $factura['sw_identifier'] = "c8784166-6c81-4361-99aa-15c28a523d41";
+            $factura['sw_identifier'] = "f4dfb118-4e37-4d28-a1aa-922230cb2057";
             $factura['sw_pin'] = "14082";
             $factura['url_ws'] = "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc";
             $factura['identification_number'] = $datos->compania->numnit;
@@ -277,18 +279,36 @@ class FacturaController extends Controller
             $factura['type_document_id'] = 1;
             $factura['company_id'] = 1;
 
-            $factura['payment_form'] = array( //forma de pago
-                "payment_form_id" => "1",
-                "payment_method_id" => "10",
-                "payment_id" => 1,
-                "name" => "Contado",
-                "code" => "1",
-                "payment_method_code" => array(
-                    "id" => 10,
-                    "name" => "Efectivo",
-                    "code" => "10"
-                )
-            );
+
+            if ($datos->fact_id_tp_fact == 2) { //facuras tipo credito
+                $factura['payment_form'] = array( //forma de pago
+                    "payment_form_id" =>  $datos->fact_id_tp_fact,
+                    "payment_method_id" => $datos->fact_id_meto_pago,
+                    "payment_id" => $datos->fact_id_tp_fact,
+                    "name" => $datos->fact_tpfact,
+                    "code" => $datos->fact_id_tp_fact,
+                    "payment_due_date" => '2019-12-10',
+                    "duration_measure" => '2',
+                    "payment_method_code" => array(
+                        "id" => $datos->fact_id_meto_pago,
+                        "name" => $datos->fact_meto_pago,
+                        "code" => $datos->fact_id_meto_pago,
+                    )
+                );
+            } else { //facturas de contado
+                $factura['payment_form'] = array( //forma de pago
+                    "payment_form_id" =>  $datos->fact_id_tp_fact,
+                    "payment_method_id" => $datos->fact_id_meto_pago,
+                    "payment_id" => $datos->fact_id_tp_fact,
+                    "name" => $datos->fact_tpfact,
+                    "code" => $datos->fact_id_tp_fact,                    
+                    "payment_method_code" => array(
+                        "id" => $datos->fact_id_meto_pago,
+                        "name" => $datos->fact_meto_pago,
+                        "code" => $datos->fact_id_meto_pago,
+                    )
+                );
+            }
 
             $factura['TypeDocument'] = array( //tipo de documento
                 "id" => 1,
@@ -345,8 +365,6 @@ class FacturaController extends Controller
             }
 
 
-
-
             $factura['legal_monetary_totals'] = array(
 
                 "line_extension_amount" => $datos->fact_total,
@@ -356,8 +374,6 @@ class FacturaController extends Controller
                 "charge_total_amount" => "0",
                 "payable_amount" => $datos->fact_total
             );
-
-
 
 
             $factura['invoice_lines'] = array();
