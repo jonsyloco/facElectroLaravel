@@ -238,8 +238,8 @@ class FacturaController extends Controller
         ini_set('max_execution_time', 0);
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
-
-        $numeroActual = 990000087;
+        
+        $numeroActual = 990000675;
         foreach ($fact as $datos) {
             // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
             $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
@@ -301,7 +301,7 @@ class FacturaController extends Controller
                     "payment_method_id" => $datos->fact_id_meto_pago,
                     "payment_id" => $datos->fact_id_tp_fact,
                     "name" => $datos->fact_tpfact,
-                    "code" => $datos->fact_id_tp_fact,                    
+                    "code" => $datos->fact_id_tp_fact,
                     "payment_method_code" => array(
                         "id" => $datos->fact_id_meto_pago,
                         "name" => $datos->fact_meto_pago,
@@ -330,7 +330,7 @@ class FacturaController extends Controller
                 $cliente['s_nombre'] = utf8_encode(trim($cliData[4]));
                 $cliente['dir'] = utf8_encode(trim($cliData[5]));
                 $cliente['barrio'] = utf8_encode(trim($cliData[6]));
-                $cliente['telefono'] = trim($cliData[7]);
+                $cliente['telefono'] = empty(trim($cliData[7])) ? '1234567890' : trim($cliData[7]); //numero de telefono por defecto
                 $cliente['email'] = empty(trim($cliData[10])) ? 'CLIENTES@IBG.COM.CO' : trim($cliData[10]); //email by wagner
                 $cliente['dv'] = trim($cliData[12]);
                 $cliente['tpDoc'] = trim($cliData[11]);
@@ -359,7 +359,7 @@ class FacturaController extends Controller
             //obteniendo los datos de tax_exclusive_amount
             $tax_exclusive_amount = 0; //base para sacar el IVA de los productos que tienen IVA
             foreach ($datos->fact_detalle as $detalle) {
-                if ((int) $detalle->deta_porc_iva != 0 && (int) $detalle->deta_base_prdcto != 0) {
+                if ((int) $detalle->deta_porc_iva != 0 && (int) $detalle->deta_base_prdcto != 0) { //base de productos que tienen IVA y no son regalos
                     $tax_exclusive_amount += $detalle->deta_base_prdcto;
                 }
             }
@@ -379,12 +379,15 @@ class FacturaController extends Controller
             $factura['invoice_lines'] = array();
             $lineas = array();
             $tax_exclusive_amount = 0; //base para sacar el IVA de los productos que tienen IVA
+
+            // print_r($datos);
+            // die;
             foreach ($datos->fact_detalle as $detalle) {
 
-                $free_of_charge_indicator = ($detalle->deta_base_prdcto == 0) ? true : false; //identificar si la fila es un obsequio
+                $free_of_charge_indicator = ($detalle->deta_regalo == 'S') ? true : false; //identificar si la fila es un obsequio
                 $total = $detalle->deta_base_prdcto + $detalle->deta_iva_prdcto;
 
-                if ($free_of_charge_indicator) { //si hay un regalo
+                if (($free_of_charge_indicator == true) && ($detalle->deta_base_prdcto == 0) && ($detalle->deta_iva_prdcto == 0)) { //si hay un regalo sin IVA marranos, vajillas... etc...
 
                     array_push($lineas, array(
                         "unit_measure_id" => 70,
@@ -413,7 +416,7 @@ class FacturaController extends Controller
                         "description" => $detalle->deta_desprdcto,
                         "code" => $detalle->deta_codprdcto,
                         "type_item_identification_id" => 3,
-                        "price_amount" => 1,
+                        "price_amount" => 1, //cambiar esto por la base real del producto
                         "base_quantity" => $detalle->deta_cant_prdcto,
 
                         "unit_measure" => array(
@@ -421,7 +424,47 @@ class FacturaController extends Controller
                         )
 
                     ));
-                } else { //no hay regalo
+                }
+
+                if (($free_of_charge_indicator == true) && ($detalle->deta_base_prdcto != 0) && ($detalle->deta_iva_prdcto != 0) && ($detalle->deta_porc_iva != 0)) { //Regalos que se le cobran el IVA, televisores, celulares... etc
+                    array_push($lineas, array(
+                        "unit_measure_id" => 70,
+                        "invoiced_quantity" => $detalle->deta_cant_prdcto,
+                        "line_extension_amount" => $detalle->deta_iva_prdcto, //El Iva toma el lugar del (total), porque solo se va a cobrar el iva.
+                        "free_of_charge_indicator" => false,
+                        "allowance_charges" => array(
+                            0 => array(
+                                "charge_indicator" => false,
+                                "allowance_charge_reason" => "Obsequio, al cual solo se le cobra el IVA",
+                                "amount" => $detalle->deta_base_prdcto,
+                                "base_amount" => $detalle->deta_base_prdcto,
+                            )
+                        ),
+                        "tax_totals" => array(
+                            0 => array(
+                                "tax_id" => 1,
+                                "tax_amount" => $detalle->deta_iva_prdcto,
+                                "taxable_amount" => $detalle->deta_base_prdcto,
+                                "percent" => $detalle->deta_porc_iva
+                            )
+
+                        ),
+
+                        "description" => $detalle->deta_desprdcto,
+                        "code" => $detalle->deta_codprdcto,
+                        "type_item_identification_id" => 3,
+                        "price_amount" => $total,
+                        "base_quantity" => $detalle->deta_cant_prdcto,
+
+                        "unit_measure" => array(
+                            "code" => "94"
+                        )
+
+                    ));
+                }
+
+
+                if ($free_of_charge_indicator == false) { //no hay regalo
 
                     array_push($lineas, array(
                         "unit_measure_id" => 70,
@@ -460,12 +503,16 @@ class FacturaController extends Controller
                 }
             }
             $factura['invoice_lines'] = $lineas;
+            // print_r($factura);
+            // die;
 
 
             $numeroActual++;
 
             $response = "";
-            $response = $client->request("POST", "invoice/$trackPruebas", ['body' => json_encode($factura)]);
+            // $response = $client->request("POST", "invoice/$trackPruebas", ['body' => json_encode($factura)]);
+            $response = $client->requestAsync("POST", "invoice/$trackPruebas", ['body' => json_encode($factura)]);
+            $response = $response->wait();
 
             // print_r($response->getBody()->getContents());
             // die;
