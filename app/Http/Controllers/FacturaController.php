@@ -238,23 +238,24 @@ class FacturaController extends Controller
         ini_set('max_execution_time', 0);
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
-        
-        $numeroActual = 990000675;
+
+        $numeroActual = 990001311;
+        // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
+        $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
+
+        $token = "FHMoDO27s4eFseLijLiDibSjKuAn3r1mBHmrPcaaZOZbz1ohy4U9kYfb6fXsSYrrWIFfdwVCCYH2MZpl";
+
+        $client = new Client([
+            'base_uri' => 'localhost/api-dian-master/public/api/ubl2.1/',
+            // 'base_uri' => '127.0.0.1:8000/api/ubl2.1/status/',
+            'headers' => [
+                'Accept' => 'application/json',
+                'Authorization' => 'Bearer ' . $token,
+                'Content-Type' => 'application/json',
+            ],
+        ]);
+
         foreach ($fact as $datos) {
-            // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
-            $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
-
-            $token = "FHMoDO27s4eFseLijLiDibSjKuAn3r1mBHmrPcaaZOZbz1ohy4U9kYfb6fXsSYrrWIFfdwVCCYH2MZpl";
-
-            $client = new Client([
-                'base_uri' => 'localhost/api-dian-master/public/api/ubl2.1/',
-                // 'base_uri' => '127.0.0.1:8000/api/ubl2.1/status/',
-                'headers' => [
-                    'Accept' => 'application/json',
-                    'Authorization' => 'Bearer ' . $token,
-                    'Content-Type' => 'application/json',
-                ],
-            ]);
 
             $factura = array();
             /**datos del certificado */
@@ -360,7 +361,7 @@ class FacturaController extends Controller
             $tax_exclusive_amount = 0; //base para sacar el IVA de los productos que tienen IVA
             foreach ($datos->fact_detalle as $detalle) {
                 if ((int) $detalle->deta_porc_iva != 0 && (int) $detalle->deta_base_prdcto != 0) { //base de productos que tienen IVA y no son regalos
-                    $tax_exclusive_amount += $detalle->deta_base_prdcto;
+                    $tax_exclusive_amount += ($detalle->deta_cant_prdcto * $detalle->deta_base_prdcto);
                 }
             }
 
@@ -385,13 +386,13 @@ class FacturaController extends Controller
             foreach ($datos->fact_detalle as $detalle) {
 
                 $free_of_charge_indicator = ($detalle->deta_regalo == 'S') ? true : false; //identificar si la fila es un obsequio
-                $total = $detalle->deta_base_prdcto + $detalle->deta_iva_prdcto;
+                $total = ($detalle->deta_iva_prdcto) + ($detalle->deta_cant_prdcto * $detalle->deta_base_prdcto);
 
                 if (($free_of_charge_indicator == true) && ($detalle->deta_base_prdcto == 0) && ($detalle->deta_iva_prdcto == 0)) { //si hay un regalo sin IVA marranos, vajillas... etc...
 
                     array_push($lineas, array(
                         "unit_measure_id" => 70,
-                        "invoiced_quantity" => "1",
+                        "invoiced_quantity" => $detalle->deta_cant_prdcto,
                         "line_extension_amount" => $total,
                         "free_of_charge_indicator" => $free_of_charge_indicator,
                         "reference_price_id" => 3,
@@ -468,7 +469,7 @@ class FacturaController extends Controller
 
                     array_push($lineas, array(
                         "unit_measure_id" => 70,
-                        "invoiced_quantity" => "1",
+                        "invoiced_quantity" => $detalle->deta_cant_prdcto,
                         "line_extension_amount" => $total,
                         "free_of_charge_indicator" => $free_of_charge_indicator,
                         "allowance_charges" => array(
@@ -483,7 +484,7 @@ class FacturaController extends Controller
                             0 => array(
                                 "tax_id" => 1,
                                 "tax_amount" => $detalle->deta_iva_prdcto,
-                                "taxable_amount" => ($detalle->deta_iva_prdcto == 0) ? 0 : $detalle->deta_base_prdcto, //si el producto tiene IVA colocamos la base, de lo contrario (0)
+                                "taxable_amount" => ($detalle->deta_iva_prdcto == 0) ? 0 : ($detalle->deta_base_prdcto * $detalle->deta_cant_prdcto), //si el producto tiene IVA colocamos la base, de lo contrario (0)
                                 "percent" => $detalle->deta_porc_iva
                             )
 
@@ -492,7 +493,7 @@ class FacturaController extends Controller
                         "description" => $detalle->deta_desprdcto,
                         "code" => $detalle->deta_codprdcto,
                         "type_item_identification_id" => 3,
-                        "price_amount" => $total,
+                        "price_amount" => round($total / $detalle->deta_cant_prdcto), //precio unitario
                         "base_quantity" => $detalle->deta_cant_prdcto,
 
                         "unit_measure" => array(
@@ -509,9 +510,16 @@ class FacturaController extends Controller
 
             $numeroActual++;
 
+
             $response = "";
-            // $response = $client->request("POST", "invoice/$trackPruebas", ['body' => json_encode($factura)]);
-            $response = $client->requestAsync("POST", "invoice/$trackPruebas", ['body' => json_encode($factura)]);
+            // $response = $client->request("POST", "invoice/$trackPruebas", [
+            //     'body' => json_encode($factura),
+            //     'delay' => '5000'
+            // ]);
+            $response = $client->requestAsync("POST", "invoice/$trackPruebas", [
+                'body' => json_encode($factura),
+                // 'delay' => '5000'
+            ]);
             $response = $response->wait();
 
             // print_r($response->getBody()->getContents());
