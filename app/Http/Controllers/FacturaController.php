@@ -239,7 +239,7 @@ class FacturaController extends Controller
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
 
-        $numeroActual = 990001311;
+        $numeroActual = 990001493;
         // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
         $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
 
@@ -288,8 +288,8 @@ class FacturaController extends Controller
                     "payment_id" => $datos->fact_id_tp_fact,
                     "name" => $datos->fact_tpfact,
                     "code" => $datos->fact_id_tp_fact,
-                    "payment_due_date" => '2019-12-10',
-                    "duration_measure" => '2',
+                    "payment_due_date" => '2019-12-10', //pendiente fecha de ultimo pago ***********************
+                    "duration_measure" => '2', // numero de cuotas **********************************
                     "payment_method_code" => array(
                         "id" => $datos->fact_id_meto_pago,
                         "name" => $datos->fact_meto_pago,
@@ -525,8 +525,88 @@ class FacturaController extends Controller
             // print_r($response->getBody()->getContents());
             // die;
 
+            $resultado = $response->getBody()->getContents();
+            $this->log($resultado);
+            $trackId = "";
+            $numero =   $factura['prefix'] . $factura['number'];
+            $numero2 =   "{$factura['prefix']}-{$factura['number']}";
 
-            $this->log($response->getBody()->getContents());
+            if ($response->getStatusCode() == 200) { //si el servidor respondio... verificamos el estado del mensaje
+
+                $resp = array();
+                $resp = json_decode($resultado, true);
+                // print_r($resp);
+                print_r($resp['message']);
+                echo "\n**********************************************************";
+                print_r($resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']);
+
+                if (array_key_exists('XmlParamsResponseTrackId', $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ErrorMessageList'])) {
+
+                    $mensajeError = $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ErrorMessageList']['XmlParamsResponseTrackId']['ProcessedMessage'];
+                    $codigoError = $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ErrorMessageList']['XmlParamsResponseTrackId']['SenderCode'];
+
+                    FactRepository::insertTablaLogCadv(
+                        $numero,
+                        "{$resp['message']} - {$mensajeError} - {$codigoError}",
+                        $numero2,
+                        '',
+                        $datos->fact_cadv_fecha_imp,
+                        $datos->fact_cadv_hora_imp,
+                        $datos->fact_cadv_numsuc,
+                        $datos->fact_total,
+                        $datos->fact_cadv_numdoc,
+                        $cliente['cedula'],
+                        $datos->fact_coddpto,
+                        $datos->fact_codmuni,
+                        'CADV',
+                        '', //TRACKID nulo
+                        '2'
+                    );
+                    continue;
+                }
+                if (is_array($resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']) == false) { //respuesta esperada y correcta
+                    $t_id = $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']; // trackID
+                    FactRepository::insertTablaLogCadv(
+                        $numero,
+                        "{$resp['message']}",
+                        $numero2,
+                        '',
+                        $datos->fact_cadv_fecha_imp,
+                        $datos->fact_cadv_hora_imp,
+                        $datos->fact_cadv_numsuc,
+                        $datos->fact_total,
+                        $datos->fact_cadv_numdoc,
+                        $cliente['cedula'],
+                        $datos->fact_coddpto,
+                        $datos->fact_codmuni,
+                        'CADV',
+                        $t_id,
+                        '1'
+                    );
+                    continue;
+                } else {
+                    FactRepository::insertTablaLogCadv(
+                        $numero,
+                        "{$resp['message']} - {$mensajeError} - {$codigoError}",
+                        $numero2,
+                        '',
+                        $datos->fact_cadv_fecha_imp,
+                        $datos->fact_cadv_hora_imp,
+                        $datos->fact_cadv_numsuc,
+                        $datos->fact_total,
+                        $datos->fact_cadv_numdoc,
+                        $cliente['cedula'],
+                        $datos->fact_coddpto,
+                        $datos->fact_codmuni,
+                        'CADV',
+                        '',
+                        '2'
+                    );
+                    continue;
+                }
+                echo "\nbase 64 xml\n";                
+                print_r($resp['ZipBase64Bytes']);
+            }
         }
         return "ok";
         // return ($factura);
