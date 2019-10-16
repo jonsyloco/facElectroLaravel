@@ -239,7 +239,7 @@ class FacturaController extends Controller
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
 
-        $numeroActual = 990001493;
+        $numeroActual = 990001674;
         // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
         $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
 
@@ -649,5 +649,34 @@ class FacturaController extends Controller
         fwrite($file, $texto . PHP_EOL);
         fwrite($file, "Fin -> {$fecha->format('d/m/Y h:i:s A')}" . PHP_EOL);
         fclose($file);
+    }
+
+    /*
+     @autor: Jhonatan W. ocampo
+     @Fecha: 16/10/2019
+     @Descripcion: Metodo encargado de guardar los comprimidos en al ruta especifica
+     @return: null 
+     */    
+    public function guardarComprimido(){
+
+        $anio = date("Y");
+        $mes = date("m");
+        $dia = date("d");
+        $rutaFinalXML = FCPATH . "XML/$nitEmpr2/$sucursal/$anio/$mes/$dia";
+        $rutaFinalXML_firma = FCPATH . "XML_FIRMADOS/$nitEmpr2/$sucursal/$anio/$mes/$dia";
+        $rutaFinalXML_compri=FCPATH . "XML_COMPRIMIDOS/$nitEmpr2/$sucursal/$anio/$mes/$dia";
+                 
+        
+        if (!file_exists($rutaFinalXML)) {//si no existe la carpeta la crea
+            mkdir($rutaFinalXML, 0777, true);
+        }
+        if (!file_exists($rutaFinalXML_firma)) {//si no existe la carpeta la crea
+            mkdir($rutaFinalXML_firma, 0777, true);
+        }
+        if (!file_exists($rutaFinalXML_compri)) {//si no existe la carpeta la crea
+            mkdir($rutaFinalXML_compri, 0777, true);
+        }
+
+        $rutaLog ="$rutaFinalXML/$aux.xml";
     }
 }
