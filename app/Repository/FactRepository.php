@@ -49,33 +49,68 @@ class FactRepository
      el resultado de haber enviado la factura a la DIAN
      @return:  
      */
-    public static function insertTablaLogCadv($num_factura,$observ,$cadv_fact,$cufe,$fec_fact,$hora_fact,$sucur,$val_fact,$consec_fact_cadv,$nitcli,$coddpto,$codmuni,$tabla_enlace,$trackid,$estado="P",$ruta_xml="",$nomb_xml="")
-    { 
+    public static function insertTablaLogCadv($num_factura, $observ, $cadv_fact, $cufe, $fec_fact, $hora_fact, $sucur, $val_fact, $consec_fact_cadv, $nitcli, $coddpto, $codmuni, $tabla_enlace, $trackid, $estado = "2", $ruta_xml = "", $nomb_xml = "")
+    {
 
         $fechaHoy = Carbon::now();
-        
-        
+
+
         $log = new TablaLogCadv();
-        $log->factura=$num_factura;
-        $log->estado='P';
-        $log->ruta_xml='por definir la ruta';
-        $log->nomb_xml='por definir el nombre';
-        $log->observ=$observ;
-        $log->cadv_fact=$cadv_fact;
-        $log->cufe=$cufe;
-        $log->fec_fact=$fec_fact;
-        $log->hora_fact=$fechaHoy->toTimeString();
-        $log->sucur=$sucur;
-        $log->val_fact=$val_fact;
-        $log->consec_fact_cadv=$consec_fact_cadv;
-        $log->nitcli=$nitcli;
-        $log->coddpto=$coddpto;
-        $log->codmuni=$codmuni;
-        $log->trackid=$trackid;
-        $log->tabla_enlace=$tabla_enlace;
-        $log->feccrea=$fechaHoy->format('m/d/Y');
-        $log->usrcrea='SYSTEMA';
-        $log->horacre=$fechaHoy->toTimeString();
+        $log->factura = $num_factura;
+        $log->estado = $estado;
+        $log->ruta_xml = $ruta_xml;
+        $log->nomb_xml = $nomb_xml;
+        $log->observ = $observ;
+        $log->cadv_fact = $cadv_fact;
+        $log->cufe = $cufe;
+        $log->fec_fact = $fec_fact;
+        $log->hora_fact = $fechaHoy->toTimeString();
+        $log->sucur = $sucur;
+        $log->val_fact = $val_fact;
+        $log->consec_fact_cadv = $consec_fact_cadv;
+        $log->nitcli = $nitcli;
+        $log->coddpto = $coddpto;
+        $log->codmuni = $codmuni;
+        $log->trackid = $trackid;
+        $log->tabla_enlace = $tabla_enlace;
+        $log->feccrea = $fechaHoy->format('m/d/Y');
+        $log->usrcrea = 'SYSTEMA';
+        $log->horacre = $fechaHoy->toTimeString();
         return $log->save();
+    }
+
+    /*
+     @autor: Jhonatan W. ocampo
+     @Fecha: 16/10/2019
+     @Descripcion: Metodo encargado de obtener las facturas en estado 1 para obtener le resultado real de la DIAN
+     @return: array 
+     */
+    public static function obtenerFacturas()
+    {
+        $facturas = TablaLogCadv::where('estado', '1')
+            ->whereNotNull('trackid')
+            ->whereRaw("trackid <> ''")
+            // ->limit(3)
+            ->get();
+        // ->toSql();
+
+        return $facturas;
+    }
+
+    /*
+     @autor: Jhonatan W. ocampo
+     @Fecha: 16/10/2019
+     @Descripcion: Metodo encargado de actualizar el estado en la tabla de LOGS
+     de la factura, este estado y descripcion son actualizados, justo despues de
+     enviar a preguntar con el TRACKID si la factura fue aceptada 
+     @return:  ??
+     */
+    public static function updateEstadoFactura($id, $estado, $observacion, $cufe = '')
+    {
+        TablaLogCadv::where('consec', $id)->update([
+            'estado' => $estado,
+            'observ' => $observacion,
+            'cufe' => $cufe,
+        ]);
     }
 }

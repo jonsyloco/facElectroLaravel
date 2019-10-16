@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 use Illuminate\Support\Carbon;
 use stdClass;
+use ZipArchive;
 
 class FacturaController extends Controller
 {
@@ -239,7 +240,7 @@ class FacturaController extends Controller
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
 
-        $numeroActual = 990001674;
+        $numeroActual = 990001963;
         // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
         $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
 
@@ -540,6 +541,8 @@ class FacturaController extends Controller
                 echo "\n**********************************************************";
                 print_r($resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']);
 
+                $ruta_xml = $this->guardarComprimido($datos->compania->numnit, $datos->fact_cadv_numsuc, $resp['ZipBase64Bytes'], $numero);
+
                 if (array_key_exists('XmlParamsResponseTrackId', $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ErrorMessageList'])) {
 
                     $mensajeError = $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ErrorMessageList']['XmlParamsResponseTrackId']['ProcessedMessage'];
@@ -560,12 +563,15 @@ class FacturaController extends Controller
                         $datos->fact_codmuni,
                         'CADV',
                         '', //TRACKID nulo
-                        '2'
+                        '2',
+                        $ruta_xml,
+                        "$numero.zip"
                     );
                     continue;
                 }
                 if (is_array($resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']) == false) { //respuesta esperada y correcta
                     $t_id = $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']; // trackID
+
                     FactRepository::insertTablaLogCadv(
                         $numero,
                         "{$resp['message']}",
@@ -581,10 +587,14 @@ class FacturaController extends Controller
                         $datos->fact_codmuni,
                         'CADV',
                         $t_id,
-                        '1'
+                        '1',
+                        $ruta_xml,
+                        "$numero.zip"
                     );
+
                     continue;
                 } else {
+
                     FactRepository::insertTablaLogCadv(
                         $numero,
                         "{$resp['message']} - {$mensajeError} - {$codigoError}",
@@ -600,11 +610,13 @@ class FacturaController extends Controller
                         $datos->fact_codmuni,
                         'CADV',
                         '',
-                        '2'
+                        '2',
+                        $ruta_xml,
+                        "$numero.zip"
                     );
                     continue;
                 }
-                echo "\nbase 64 xml\n";                
+                echo "\nbase 64 xml\n";
                 print_r($resp['ZipBase64Bytes']);
             }
         }
@@ -655,28 +667,27 @@ class FacturaController extends Controller
      @autor: Jhonatan W. ocampo
      @Fecha: 16/10/2019
      @Descripcion: Metodo encargado de guardar los comprimidos en al ruta especifica
-     @return: null 
-     */    
-    public function guardarComprimido(){
+     @return: string ruta LOG 
+     */
+    public function guardarComprimido($nitEmpr2, $sucursal, $xml_zip, $nombre_archivo)
+    {
 
-        $anio = date("Y");
-        $mes = date("m");
-        $dia = date("d");
-        $rutaFinalXML = FCPATH . "XML/$nitEmpr2/$sucursal/$anio/$mes/$dia";
-        $rutaFinalXML_firma = FCPATH . "XML_FIRMADOS/$nitEmpr2/$sucursal/$anio/$mes/$dia";
-        $rutaFinalXML_compri=FCPATH . "XML_COMPRIMIDOS/$nitEmpr2/$sucursal/$anio/$mes/$dia";
-                 
-        
-        if (!file_exists($rutaFinalXML)) {//si no existe la carpeta la crea
-            mkdir($rutaFinalXML, 0777, true);
-        }
-        if (!file_exists($rutaFinalXML_firma)) {//si no existe la carpeta la crea
-            mkdir($rutaFinalXML_firma, 0777, true);
-        }
-        if (!file_exists($rutaFinalXML_compri)) {//si no existe la carpeta la crea
-            mkdir($rutaFinalXML_compri, 0777, true);
+        $fecha = Carbon::now();
+        $anio = $fecha->format('Y');
+        $mes = $fecha->format('m');
+        $dia = $fecha->format('d');
+
+        $rutaFinalXML_compri = "XML_COMPRIMIDOS/$nitEmpr2/$sucursal/$anio/$mes/$dia/";
+
+        if (!file_exists($rutaFinalXML_compri)) { //si no existe la carpeta la crea
+            if (mkdir($rutaFinalXML_compri, 0777, true) === false) {
+                echo "carpeta no creada";
+            }
         }
 
-        $rutaLog ="$rutaFinalXML/$aux.xml";
+        $zip_contents = $xml_zip;
+        $file = $rutaFinalXML_compri . $nombre_archivo . '.zip';
+        file_put_contents($file, base64_decode(base64_decode($zip_contents)));
+        return $file;
     }
 }

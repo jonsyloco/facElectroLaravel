@@ -34,6 +34,16 @@ Route::get('fac/sendInvoice2', [
     'as'    => 'factura.sendInvoice2'
 ]);
 
+/*************************recuperar el estado de las facturas*****************/
+Route::get('getFac/', [
+    'uses'    => 'ResultFacturasController@index',
+    'as'    => 'getFac.index'
+]);
+Route::get('getFac/gfact', [
+    'uses'    => 'ResultFacturasController@obtenerResulFactPendientes',
+    'as'    => 'getFac.gfact'
+]);
+
 /****************NOTAS CREDITO ******************************************/
 Route::get('not_cred/index', [
     'uses'    => 'NotaCreditoController@index',
@@ -81,6 +91,7 @@ Route::get('not_deb/sendNotaDebito2', [ //envio de notas full
 
 /*********************************ALIAS*******************************/
 Route::Resource('fac', 'FacturaController');
+Route::Resource('getFac', 'ResultFacturasController'); //recuperar facturas
 Route::Resource('not_cred', 'NotaCreditoController');
 Route::Resource('not_deb', 'NotaDebitoController');
 Route::get('/', 'FacturaController@index');
