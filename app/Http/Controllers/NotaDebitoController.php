@@ -54,7 +54,8 @@ class NotaDebitoController extends Controller
      */
     public function sendNotaDebito()
     {
-        $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
+        // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
+        $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
 
         $token = "FHMoDO27s4eFseLijLiDibSjKuAn3r1mBHmrPcaaZOZbz1ohy4U9kYfb6fXsSYrrWIFfdwVCCYH2MZpl";
 
@@ -72,14 +73,14 @@ class NotaDebitoController extends Controller
         /**datos del certificado */
         $nota['certificate_name'] = "8900016003.p12";
         $nota['certificate_pass'] = "7pC9u9bCEV";
-        $nota['sw_identifier'] = "c8784166-6c81-4361-99aa-15c28a523d41";
+        $nota['sw_identifier'] = "f4dfb118-4e37-4d28-a1aa-922230cb2057";
         $nota['sw_pin'] = "14082";
         $nota['url_ws'] = "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc";
         $nota['identification_number'] = "890001600";
 
         /*datos de la nota */
         $nota['prefix'] = "";
-        $nota['number'] = "5";
+        $nota['number'] = "71";
         /**numero a ITERAR -> # de la nota */
         $nota['from'] = "";
         $nota['to'] = "";
@@ -114,10 +115,9 @@ class NotaDebitoController extends Controller
 
         $nota["billing_reference"] = array(
 
-            "number" => "SETP990000016",
-            "uuid" => "6455bdd3db121d3536076a53fb4e19b4f87638dad9c3a38df99d870b322e5284b58853a02679d28ec988d9102b7eaef8",
-            "issue_date" => "2019-09-06"
-
+            "number" => "SETP990001968",
+            "uuid" => "3e3564eb26b56a7b954793b78b5e0ec2fdb6df30df81e918c82635b41bd53ac3ab80638db6df3044a102f1b639fff55d",
+            "issue_date" => "2019-08-01"
 
         );
 

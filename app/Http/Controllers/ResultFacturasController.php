@@ -62,7 +62,7 @@ class ResultFacturasController extends Controller
                 //hay errores
                 $descripcion = $resp['ResponseDian']['Envelope']['Body']['GetStatusZipResponse']['GetStatusZipResult']['DianResponse']['StatusDescription'];
                 $IUUD = $resp['ResponseDian']['Envelope']['Body']['GetStatusZipResponse']['GetStatusZipResult']['DianResponse']['XmlDocumentKey'];
-                $mensajes = $resp['ResponseDian']['Envelope']['Body']['GetStatusZipResponse']['GetStatusZipResult']['DianResponse']['ErrorMessage'];
+                $mensajes = json_encode($resp['ResponseDian']['Envelope']['Body']['GetStatusZipResponse']['GetStatusZipResult']['DianResponse']['ErrorMessage']);
                 $consolidado = array();
                 $consolidado['StatusDescription'] = $descripcion;
                 $consolidado['CUFE'] = $IUUD;

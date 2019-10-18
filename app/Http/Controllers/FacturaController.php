@@ -240,7 +240,7 @@ class FacturaController extends Controller
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
 
-        $numeroActual = 990001963;
+        $numeroActual = 990002026;
         // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
         $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
 
@@ -468,6 +468,34 @@ class FacturaController extends Controller
 
                 if ($free_of_charge_indicator == false) { //no hay regalo
 
+                    $precioUnitario = round($total / $detalle->deta_cant_prdcto); //con iva
+                    $total_parcial = 0;
+                    $descuento = 0;
+
+                    /**INICIO---cuadrando el peso que hay veces hay de descuadre */
+                    if ($detalle->deta_cant_prdcto > 1) { //solo cuando es mas de 1 producto
+                        $total_parcial = $precioUnitario * $detalle->deta_cant_prdcto;
+                        if ($total_parcial != $total) { //si esta descuadrado el total con el (preciounitario+iva) * cantidad -> por pesos de redondeo
+
+                            if ($total_parcial < $total) {
+                                $descuento = abs($total_parcial - $total);
+                                $total = min($total_parcial, $total);
+                            }
+
+                            if ($total_parcial > $total) {
+                                $total = max($total_parcial, $total);
+                                $precioUnitario += ($total - $total_parcial); //le sumo la diferencia al precio unitario
+                            }
+
+                            //esos pesos pasan como descuento
+
+                            /**se debe identificar cual es el menor, para que este sea colocado en los items */
+                        }
+                    }
+                    /**FIN---cuadrando el peso que hay veces hay de descuadre */
+
+
+
                     array_push($lineas, array(
                         "unit_measure_id" => 70,
                         "invoiced_quantity" => $detalle->deta_cant_prdcto,
@@ -477,7 +505,7 @@ class FacturaController extends Controller
                             0 => array(
                                 "charge_indicator" => false,
                                 "allowance_charge_reason" => "Discount",
-                                "amount" => "0",
+                                "amount" => $descuento,
                                 "base_amount" => "0"
                             )
                         ),
@@ -494,7 +522,7 @@ class FacturaController extends Controller
                         "description" => $detalle->deta_desprdcto,
                         "code" => $detalle->deta_codprdcto,
                         "type_item_identification_id" => 3,
-                        "price_amount" => round($total / $detalle->deta_cant_prdcto), //precio unitario
+                        "price_amount" => $precioUnitario, //precio unitario
                         "base_quantity" => $detalle->deta_cant_prdcto,
 
                         "unit_measure" => array(
