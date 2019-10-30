@@ -116,7 +116,7 @@ class FacturaController extends Controller
 
         /*datos de la factura */
         $factura['prefix'] = "SETP";
-        $factura['number'] = "990000037";
+        $factura['number'] = "990002027";
         $factura['from'] = "990000000";
         $factura['to'] = "995000000";
         $factura['technical_key'] = "fc8eac422eba16e22ffd8c6f94b3f40a6e38162c";
@@ -240,7 +240,7 @@ class FacturaController extends Controller
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
 
-        $numeroActual = 990002026;
+        $numeroActual = 990002359;
         // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
         $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
 
@@ -332,7 +332,7 @@ class FacturaController extends Controller
                 $cliente['s_nombre'] = utf8_encode(trim($cliData[4]));
                 $cliente['dir'] = utf8_encode(trim($cliData[5]));
                 $cliente['barrio'] = utf8_encode(trim($cliData[6]));
-                $cliente['telefono'] = empty(trim($cliData[7])) ? '1234567890' : trim($cliData[7]); //numero de telefono por defecto
+                $cliente['telefono'] = empty(trim(str_replace(" ", "", $cliData[7]))) ? '1234567890' : trim(str_replace(" ", "", $cliData[7])); //numero de telefono por defecto
                 $cliente['email'] = empty(trim($cliData[10])) ? 'CLIENTES@IBG.COM.CO' : trim($cliData[10]); //email by wagner
                 $cliente['dv'] = trim($cliData[12]);
                 $cliente['tpDoc'] = trim($cliData[11]);
@@ -387,7 +387,8 @@ class FacturaController extends Controller
             foreach ($datos->fact_detalle as $detalle) {
 
                 $free_of_charge_indicator = ($detalle->deta_regalo == 'S') ? true : false; //identificar si la fila es un obsequio
-                $total = ($detalle->deta_iva_prdcto) + ($detalle->deta_cant_prdcto * $detalle->deta_base_prdcto);
+                // $total = ($detalle->deta_iva_prdcto) + ($detalle->deta_cant_prdcto * $detalle->deta_base_prdcto);
+                $total = $detalle->deta_base_iva_prdcto;
 
                 if (($free_of_charge_indicator == true) && ($detalle->deta_base_prdcto == 0) && ($detalle->deta_iva_prdcto == 0)) { //si hay un regalo sin IVA marranos, vajillas... etc...
 
@@ -429,6 +430,7 @@ class FacturaController extends Controller
                 }
 
                 if (($free_of_charge_indicator == true) && ($detalle->deta_base_prdcto != 0) && ($detalle->deta_iva_prdcto != 0) && ($detalle->deta_porc_iva != 0)) { //Regalos que se le cobran el IVA, televisores, celulares... etc
+                    $valor_prdcto_fila = $detalle->deta_base_prdcto + $detalle->deta_iva_prdcto;
                     array_push($lineas, array(
                         "unit_measure_id" => 70,
                         "invoiced_quantity" => $detalle->deta_cant_prdcto,
@@ -468,44 +470,18 @@ class FacturaController extends Controller
 
                 if ($free_of_charge_indicator == false) { //no hay regalo
 
-                    $precioUnitario = round($total / $detalle->deta_cant_prdcto); //con iva
-                    $total_parcial = 0;
-                    $descuento = 0;
-
-                    /**INICIO---cuadrando el peso que hay veces hay de descuadre */
-                    if ($detalle->deta_cant_prdcto > 1) { //solo cuando es mas de 1 producto
-                        $total_parcial = $precioUnitario * $detalle->deta_cant_prdcto;
-                        if ($total_parcial != $total) { //si esta descuadrado el total con el (preciounitario+iva) * cantidad -> por pesos de redondeo
-
-                            if ($total_parcial < $total) {
-                                $descuento = abs($total_parcial - $total);
-                                $total = min($total_parcial, $total);
-                            }
-
-                            if ($total_parcial > $total) {
-                                $total = max($total_parcial, $total);
-                                $precioUnitario += ($total - $total_parcial); //le sumo la diferencia al precio unitario
-                            }
-
-                            //esos pesos pasan como descuento
-
-                            /**se debe identificar cual es el menor, para que este sea colocado en los items */
-                        }
-                    }
-                    /**FIN---cuadrando el peso que hay veces hay de descuadre */
-
 
 
                     array_push($lineas, array(
                         "unit_measure_id" => 70,
                         "invoiced_quantity" => $detalle->deta_cant_prdcto,
-                        "line_extension_amount" => $total,
+                        "line_extension_amount" => $total * $detalle->deta_cant_prdcto,
                         "free_of_charge_indicator" => $free_of_charge_indicator,
                         "allowance_charges" => array(
                             0 => array(
                                 "charge_indicator" => false,
                                 "allowance_charge_reason" => "Discount",
-                                "amount" => $descuento,
+                                "amount" => 0,
                                 "base_amount" => "0"
                             )
                         ),
@@ -522,7 +498,7 @@ class FacturaController extends Controller
                         "description" => $detalle->deta_desprdcto,
                         "code" => $detalle->deta_codprdcto,
                         "type_item_identification_id" => 3,
-                        "price_amount" => $precioUnitario, //precio unitario
+                        "price_amount" => $total, //precio unitario
                         "base_quantity" => $detalle->deta_cant_prdcto,
 
                         "unit_measure" => array(
