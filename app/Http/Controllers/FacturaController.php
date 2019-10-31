@@ -240,7 +240,7 @@ class FacturaController extends Controller
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
 
-        $numeroActual = 990002359;
+        $numeroActual = 990004025;
         // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
         $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
 
@@ -323,8 +323,15 @@ class FacturaController extends Controller
 
             /**tratamiento del cliente */
             if ($datos->fact_cliente != "" || (empty($datos->fact_cliente) == false)) {
+
                 $cliData = array();
                 $cliData = explode('|', $datos->fact_cliente);
+
+
+                $telefono = empty(trim(str_replace(" ", "", $cliData[7]))) ? '1234567890' : trim(str_replace(" ", "", $cliData[7])); //numero de telefono por defecto
+                if (strlen($telefono) < 7 || strlen($telefono) > 10) {
+                    $telefono = "1234567890";
+                }
                 $cliente['cedula'] = trim($cliData[0]);
                 $cliente['p_apellido'] = utf8_encode(trim($cliData[1]));
                 $cliente['s_apellido'] = utf8_encode(trim($cliData[2]));
@@ -332,7 +339,7 @@ class FacturaController extends Controller
                 $cliente['s_nombre'] = utf8_encode(trim($cliData[4]));
                 $cliente['dir'] = utf8_encode(trim($cliData[5]));
                 $cliente['barrio'] = utf8_encode(trim($cliData[6]));
-                $cliente['telefono'] = empty(trim(str_replace(" ", "", $cliData[7]))) ? '1234567890' : trim(str_replace(" ", "", $cliData[7])); //numero de telefono por defecto
+                $cliente['telefono'] = $telefono;
                 $cliente['email'] = empty(trim($cliData[10])) ? 'CLIENTES@IBG.COM.CO' : trim($cliData[10]); //email by wagner
                 $cliente['dv'] = trim($cliData[12]);
                 $cliente['tpDoc'] = trim($cliData[11]);
@@ -430,7 +437,15 @@ class FacturaController extends Controller
                 }
 
                 if (($free_of_charge_indicator == true) && ($detalle->deta_base_prdcto != 0) && ($detalle->deta_iva_prdcto != 0) && ($detalle->deta_porc_iva != 0)) { //Regalos que se le cobran el IVA, televisores, celulares... etc
+
                     $valor_prdcto_fila = $detalle->deta_base_prdcto + $detalle->deta_iva_prdcto;
+
+                    $ii = ($detalle->deta_base_prdcto * $detalle->deta_cant_prdcto * ($detalle->deta_porc_iva / 100));
+                    $valor_x = $this->redondeo($ii);
+
+                    // echo "\ncon regalo sin base -> $valor_x\n";
+
+
                     array_push($lineas, array(
                         "unit_measure_id" => 70,
                         "invoiced_quantity" => $detalle->deta_cant_prdcto,
@@ -447,8 +462,9 @@ class FacturaController extends Controller
                         "tax_totals" => array(
                             0 => array(
                                 "tax_id" => 1,
-                                "tax_amount" => $detalle->deta_iva_prdcto,
-                                "taxable_amount" => $detalle->deta_base_prdcto,
+                                "tax_amount" => $valor_x,
+                                // "tax_amount" => $detalle->deta_iva_prdcto,
+                                "taxable_amount" => ($detalle->deta_base_prdcto * $detalle->deta_cant_prdcto),
                                 "percent" => $detalle->deta_porc_iva
                             )
 
@@ -457,7 +473,7 @@ class FacturaController extends Controller
                         "description" => $detalle->deta_desprdcto,
                         "code" => $detalle->deta_codprdcto,
                         "type_item_identification_id" => 3,
-                        "price_amount" => $total,
+                        "price_amount" => $valor_prdcto_fila,
                         "base_quantity" => $detalle->deta_cant_prdcto,
 
                         "unit_measure" => array(
@@ -471,6 +487,12 @@ class FacturaController extends Controller
                 if ($free_of_charge_indicator == false) { //no hay regalo
 
 
+                    $ii = (($detalle->deta_base_prdcto) * $detalle->deta_cant_prdcto * ($detalle->deta_porc_iva / 100));
+                    $valor_x = $this->redondeo($ii);
+                    // echo "\nsin regalo-> $valor_x\n";
+
+                    // $iva = $this->redondeo(8979879.51);
+                    // dd($iva);
 
                     array_push($lineas, array(
                         "unit_measure_id" => 70,
@@ -488,7 +510,8 @@ class FacturaController extends Controller
                         "tax_totals" => array(
                             0 => array(
                                 "tax_id" => 1,
-                                "tax_amount" => $detalle->deta_iva_prdcto,
+                                // "tax_amount" => $detalle->deta_iva_prdcto + $var,
+                                "tax_amount" => $valor_x,
                                 "taxable_amount" => ($detalle->deta_iva_prdcto == 0) ? 0 : ($detalle->deta_base_prdcto * $detalle->deta_cant_prdcto), //si el producto tiene IVA colocamos la base, de lo contrario (0)
                                 "percent" => $detalle->deta_porc_iva
                             )
@@ -693,5 +716,42 @@ class FacturaController extends Controller
         $file = $rutaFinalXML_compri . $nombre_archivo . '.zip';
         file_put_contents($file, base64_decode(base64_decode($zip_contents)));
         return $file;
+    }
+
+
+    /*
+     @autor: Jhonatan W. ocampo
+     @Fecha: 30/10/2019
+     @Descripcion: Metodo encargado de redondear
+     @return:  numero sin decimales
+     */
+    public function redondeo($var)
+    {
+        // echo " valor-> $var ";
+        $numero_fra = explode('.', $var);
+        if (count($numero_fra) > 1) { //si hay decimales en el numero
+            if (strlen($numero_fra[1]) >= 2) {
+                if (substr($numero_fra[1], 0, 2) > 50) { //si el numero cuenta con mas de 2 decimales, solo se cogen 2 y se verifican si esos 2 son mas de 50
+                    return $numero_fra[0] + 1; //se redondea al numero siguiente
+                }
+                return $numero_fra[0]; //se deja redondea al numero de abajo
+            } else {
+                if ($numero_fra[1] > 5) { // solo tiene un decimal, y se verifica si es mayor a 5
+                    return $numero_fra[0] + 1; // se redonde por encima
+                }
+                if ($numero_fra[1] == 5) { //si el unico decimal que hay es 5, se procede hacer la revision del numero anterior
+                    $numero_precede = substr($numero_fra[0], -1);
+                    if ($numero_precede % 2 == 0) {
+                        return $numero_fra[0];
+                    } else {
+                        return $numero_fra[0] + 1;
+                    }
+                }
+
+                return $numero_fra[0]; //se redondea por debajo porque el unico numero decimal es menor a 5
+            }
+        } else { //no hay decimales
+            return $var;
+        }
     }
 }

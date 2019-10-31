@@ -34,8 +34,10 @@ class FactRepository
     {
         // return (Fact::where('fact_cadv_numdoc','11079669')->get());
         $facturas = Fact::on('ibg_100_7')
-            ->whereRaw("to_char(fact_feccrea,'%m%d%Y') ='10292019'")
-            // ->where('fact_cadv_numdoc', '=', '12054944') //factura credito
+            ->whereRaw("to_char(fact_feccrea,'%m%d%Y') ='10312019'")
+            // ->where('fact_cadv_numdoc', '=', '20051684') //factura error
+            // ->where('fact_cadv_numdoc', '=', '12054944') //factura error
+            // ->where('fact_cadv_numdoc', '=', '54050631') //factura error
             // ->whereIn(
             //     'fact_cadv_numdoc',
             //     array(
