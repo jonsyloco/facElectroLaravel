@@ -240,7 +240,7 @@ class FacturaController extends Controller
 
         $fact = FactRepository::getFacturas(); //obtenemos todas las facturas
 
-        $numeroActual = 990004025;
+        $numeroActual = 990004028;
         // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
         $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
 
