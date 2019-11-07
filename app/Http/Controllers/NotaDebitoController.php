@@ -219,9 +219,10 @@ class NotaDebitoController extends Controller
         $notas = NotaDebitoRepository::getNotasEnviar();
         // print_r($notas);die;
 
-        $numeroActual = 65;
+        $numeroActual = 84;
 
-        $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
+        // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
+        $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
 
         $token = "FHMoDO27s4eFseLijLiDibSjKuAn3r1mBHmrPcaaZOZbz1ohy4U9kYfb6fXsSYrrWIFfdwVCCYH2MZpl";
 
@@ -237,7 +238,7 @@ class NotaDebitoController extends Controller
 
 
         foreach ($notas as $nota_d) {
-            // print_r($nota_d->nombre);
+            // print_r($nota_d);
             // die;
 
             $nota = array();
@@ -245,7 +246,8 @@ class NotaDebitoController extends Controller
             /**datos del certificado */
             $nota['certificate_name'] = "8900016003.p12";
             $nota['certificate_pass'] = "7pC9u9bCEV";
-            $nota['sw_identifier'] = "c8784166-6c81-4361-99aa-15c28a523d41";
+            // $nota['sw_identifier'] = "c8784166-6c81-4361-99aa-15c28a523d41";
+            $nota['sw_identifier'] = "f4dfb118-4e37-4d28-a1aa-922230cb2057";
             $nota['sw_pin'] = "14082";
             $nota['url_ws'] = "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc";
             $nota['identification_number'] = "890001600";
@@ -295,10 +297,16 @@ class NotaDebitoController extends Controller
 
             //tratamiento de datos de cliente
 
-            $cliente = array();
-            $cliData = $nota_d->nd_datos_cliente;
-            if ($cliData != "" || (empty($cliData) == false)) {
-                $cliData = explode('|', $cliData);
+            if ($nota_d->nd_datos_cliente != "" || (empty($nota_d->nd_datos_cliente) == false)) {
+
+                $cliData = array();
+                $cliData = explode('|', $nota_d->nd_datos_cliente);
+
+
+                $telefono = empty(trim(str_replace(" ", "", $cliData[7]))) ? '1234567890' : trim(str_replace(" ", "", $cliData[7])); //numero de telefono por defecto
+                if (strlen($telefono) < 7 || strlen($telefono) > 10) {
+                    $telefono = "1234567890";
+                }
                 $cliente['cedula'] = trim($cliData[0]);
                 $cliente['p_apellido'] = utf8_encode(trim($cliData[1]));
                 $cliente['s_apellido'] = utf8_encode(trim($cliData[2]));
@@ -306,7 +314,14 @@ class NotaDebitoController extends Controller
                 $cliente['s_nombre'] = utf8_encode(trim($cliData[4]));
                 $cliente['dir'] = utf8_encode(trim($cliData[5]));
                 $cliente['barrio'] = utf8_encode(trim($cliData[6]));
-                $cliente['telefono'] = trim($cliData[7]);
+                $cliente['telefono'] = $telefono;
+                $cliente['email'] = empty(trim($cliData[10])) ? 'CLIENTES@IBG.COM.CO' : trim($cliData[10]); //email by wagner
+                
+                if($this->is_valid_email($cliente['email'])==false){//verificar email
+                    $cliente['email']='CLIENTES@IBG.COM.CO';
+                }
+
+                // $cliente['email'] = 'clientes@ibg.com.co'; //email by wagner
                 $cliente['dv'] = trim($cliData[12]);
                 $cliente['tpDoc'] = trim($cliData[11]);
                 $cliente['nombres'] = trim($cliData[13]);
@@ -315,6 +330,8 @@ class NotaDebitoController extends Controller
                 } else { //es persona natural
                     $cliente['razon_social'] = "";
                 }
+            } else {
+                continue;
             }
 
 
@@ -324,7 +341,7 @@ class NotaDebitoController extends Controller
                 "name" => empty($cliente['razon_social']) ? $cliente['nombres'] : $cliente['razon_social'],
                 "phone" => $cliente['telefono'],
                 "address" => $cliente['dir'],
-                "email" => "test@test.com", //HAY QUE TRAER EL MAIL
+                "email" => $cliente['email'], //HAY QUE TRAER EL MAIL
                 "merchant_registration" => "No tiene"
             );
 
@@ -410,9 +427,17 @@ class NotaDebitoController extends Controller
             // return $resp['ResponseDian']['Envelope']['Body'];
         }
         return "ok";
+    }
 
-        
-
-
+    /*
+     @autor: Jhonatan W. ocampo
+     @Fecha: 06/11/2019
+     @Descripcion: Metodo encargado de validar si el email
+     es sintacticamente correcto
+     @return:  
+     */    
+    function is_valid_email($str)
+    {
+        return (false !== filter_var($str, FILTER_VALIDATE_EMAIL));
     }
 }

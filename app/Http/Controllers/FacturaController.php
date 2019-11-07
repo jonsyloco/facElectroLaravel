@@ -359,7 +359,7 @@ class FacturaController extends Controller
                 "name" => $cliente['nombres'],
                 "phone" => $cliente['telefono'],
                 "address" => $cliente['dir'],
-                "email" => "test@test.com", //FALTA OBTENER EL MAIL
+                "email" =>  $cliente['email'], //FALTA OBTENER EL MAIL
                 "merchant_registration" => "No tiene"
             );
 
