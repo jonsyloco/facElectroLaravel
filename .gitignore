@@ -12,3 +12,4 @@ npm-debug.log
 yarn-error.log
 public/log/*.txt
 public/XML_COMPRIMIDOS/
+public/XML_NOTAS_DEBITO/

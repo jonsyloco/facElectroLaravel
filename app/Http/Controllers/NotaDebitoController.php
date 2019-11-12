@@ -219,7 +219,7 @@ class NotaDebitoController extends Controller
         $notas = NotaDebitoRepository::getNotasEnviar();
         // print_r($notas);die;
 
-        $numeroActual = 84;
+        $numeroActual = 94;
 
         // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
         $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
@@ -246,11 +246,10 @@ class NotaDebitoController extends Controller
             /**datos del certificado */
             $nota['certificate_name'] = "8900016003.p12";
             $nota['certificate_pass'] = "7pC9u9bCEV";
-            // $nota['sw_identifier'] = "c8784166-6c81-4361-99aa-15c28a523d41";
             $nota['sw_identifier'] = "f4dfb118-4e37-4d28-a1aa-922230cb2057";
-            $nota['sw_pin'] = "14082";
+            $nota['sw_pin'] = "14082"; //cambiar esto por el dato real
             $nota['url_ws'] = "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc";
-            $nota['identification_number'] = "890001600";
+            $nota['identification_number'] = $nota_d->compania->numnit;
 
 
             /*datos de la nota */
@@ -316,9 +315,9 @@ class NotaDebitoController extends Controller
                 $cliente['barrio'] = utf8_encode(trim($cliData[6]));
                 $cliente['telefono'] = $telefono;
                 $cliente['email'] = empty(trim($cliData[10])) ? 'CLIENTES@IBG.COM.CO' : trim($cliData[10]); //email by wagner
-                
-                if($this->is_valid_email($cliente['email'])==false){//verificar email
-                    $cliente['email']='CLIENTES@IBG.COM.CO';
+
+                if ($this->is_valid_email($cliente['email']) == false) { //verificar email
+                    $cliente['email'] = 'CLIENTES@IBG.COM.CO';
                 }
 
                 // $cliente['email'] = 'clientes@ibg.com.co'; //email by wagner
@@ -351,9 +350,15 @@ class NotaDebitoController extends Controller
 
             // die(" - {$nota_d->nd_vlrtotal_nota}");
 
-            $tax_exclusive_amount = 0; //base para calcular los impuestos de la NOTA
-            if ((int) $nota_d->nd_porciva != 0 && (int) $nota_d->nd_vlriva != 0) {
-                $tax_exclusive_amount += $nota_d->nd_canc_vlrnot - $nota_d->nd_vlriva;
+            //obteniendo los datos de tax_exclusive_amount
+            $tax_exclusive_amount = 0; //base para sacar el IVA de los productos que tienen IVA
+            foreach ($nota_d->nota_detalle as $detalle) {
+                if ((int) $detalle->nota_porc_iva != 0 && (int) $detalle->nota_valor_prdcto != 0) { //base de productos que tienen IVA y no son regalos
+                    $tax_exclusive_amount += round(($detalle->nota_valor_prdcto) / (($detalle->nota_porc_iva / 100) + 1));
+                }
+                if ((int) $detalle->nota_porc_iva != 0 && (int) $detalle->nota_valor_prdcto == 0) { //base de productos que son regalos y se les cobra el IVA
+                    $tax_exclusive_amount += round($detalle->nota_iva_prdcto / ($detalle->nota_porc_iva / 100));
+                }
             }
 
             $iva = 0; //iva de la NOTA
@@ -370,61 +375,270 @@ class NotaDebitoController extends Controller
                 "payable_amount" => (int) $nota_d->nd_canc_vlrnot
             );
 
+            $nota['debit_note_lines'] = array();
+            $lineas = array();
+            $tax_exclusive_amount = 0; //base para sacar el IVA de los productos que tienen IVA
 
-            $nota['debit_note_lines'] = array(
-                0 => array(
-                    "unit_measure_id" => 70,
-                    "invoiced_quantity" => "1",
-                    "line_extension_amount" => (int) $nota_d->nd_canc_vlrnot,
-                    "free_of_charge_indicator" => false,
+            foreach ($nota_d->nota_detalle as $detalle) {
 
-                    "allowance_charges" => array(
-                        0 => array(
-                            "charge_indicator" => false,
-                            "allowance_charge_reason" => "Discount",
-                            "amount" => "0",
-                            "base_amount" => "0"
-                        )
-                    ),
-                    "tax_totals" => array(
-                        0 => array(
 
-                            "tax_id" => 1,
-                            "tax_amount" => $iva,
-                            "taxable_amount" => $tax_exclusive_amount,
-                            "percent" => $nota_d->nd_porciva
+                $free_of_charge_indicator = ($detalle->nota_obsequio == 'S') ? true : false; //identificar si la fila es un obsequio
+                // $total = ($detalle->deta_iva_prdcto) + ($detalle->deta_cant_prdcto * $detalle->deta_base_prdcto);
+                $total = $detalle->nota_valor_prdcto;
+
+                $base = $detalle->nota_valor_prdcto;
+
+                if ($detalle->nota_porc_iva <> 0 && $detalle->nota_valor_prdcto <> 0) {
+                    $base = round(($detalle->nota_valor_prdcto) / (($detalle->nota_porc_iva / 100) + 1));
+                }
+
+                if ($detalle->nota_porc_iva <> 0 && $detalle->nota_valor_prdcto == 0) { //base para los regalos
+                    $base = round($detalle->nota_iva_prdcto / ($detalle->nota_porc_iva / 100));
+                }
+
+                if (($free_of_charge_indicator == true) && ($detalle->nota_valor_prdcto == 0) && ($detalle->nota_iva_prdcto == 0)) { //si hay un regalo sin IVA marranos, vajillas... etc...
+
+
+                    array_push($lineas, array(
+                        "unit_measure_id" => 70,
+                        "invoiced_quantity" => 1, //cambiar a valor real
+                        "line_extension_amount" => $total,
+                        "free_of_charge_indicator" => $free_of_charge_indicator,
+                        "reference_price_id" => 3,
+                        "allowance_charges" => array(
+                            0 => array(
+                                "charge_indicator" => false,
+                                "allowance_charge_reason" => "Discount",
+                                "amount" => "0",
+                                "base_amount" => "0"
+                            )
                         ),
-                    ),
+                        "tax_totals" => array(
+                            0 => array(
+                                "tax_id" => 1,
+                                "tax_amount" => $detalle->nota_iva_prdcto,
+                                "taxable_amount" => $base,
+                                "percent" => $detalle->nota_porc_iva
+                            )
 
-                    "description" => $nota_d->nd_canc_detalle,
-                    "code" => "1111111",
-                    "type_item_identification_id" => 3,
-                    "price_amount" => (int) $nota_d->nd_canc_vlrnot,
-                    "base_quantity" => "1",
+                        ),
 
-                    "unit_measure" => array(
-                        "code" => "94"
-                    )
-                )
+                        "description" => $detalle->nota_desprdcto,
+                        "code" => $detalle->nota_codprdcto,
+                        "type_item_identification_id" => 3,
+                        "price_amount" => 1, //cambiar esto por la base real del producto
+                        "base_quantity" => $detalle->nota_cant_prdcto,
 
-            );
-            // print_r($nota);
+                        "unit_measure" => array(
+                            "code" => "94"
+                        )
+
+                    ));
+                }
+
+                if (($free_of_charge_indicator == true) && ($detalle->nota_valor_prdcto == 0) && ($detalle->nota_iva_prdcto != 0) && ($detalle->nota_porc_iva != 0)) { //Regalos que se le cobran el IVA, televisores, celulares... etc
+
+                    $valor_prdcto_fila = $base + $detalle->nota_iva_prdcto;
+
+                    // $ii = ($detalle->deta_base_prdcto * $detalle->deta_cant_prdcto * ($detalle->deta_porc_iva / 100));
+                    // $valor_x = $this->redondeo($ii);
+
+                    // echo "\ncon regalo sin base -> $valor_x\n";
+
+
+                    array_push($lineas, array(
+                        "unit_measure_id" => 70,
+                        "invoiced_quantity" => $detalle->nota_cant_prdcto,
+                        "line_extension_amount" => $detalle->nota_iva_prdcto, //El Iva toma el lugar del (total), porque solo se va a cobrar el iva.
+                        "free_of_charge_indicator" => false,
+                        "allowance_charges" => array(
+                            0 => array(
+                                "charge_indicator" => false,
+                                "allowance_charge_reason" => "Obsequio, al cual solo se le cobra el IVA",
+                                "amount" => $base,
+                                "base_amount" => $base,
+                            )
+                        ),
+                        "tax_totals" => array(
+                            0 => array(
+                                "tax_id" => 1,
+                                "tax_amount" => $detalle->nota_iva_prdcto,
+                                "taxable_amount" => $base,
+                                "percent" => $detalle->nota_porc_iva
+                            )
+
+                        ),
+
+                        "description" => $detalle->nota_desprdcto,
+                        "code" => $detalle->nota_codprdcto,
+                        "type_item_identification_id" => 3,
+                        "price_amount" => $valor_prdcto_fila,
+                        "base_quantity" => $detalle->nota_cant_prdcto,
+
+                        "unit_measure" => array(
+                            "code" => "94"
+                        )
+
+                    ));
+                }
+
+
+                if ($free_of_charge_indicator == false) { //no hay regalo
+
+
+                    // $ii = (($detalle->deta_base_prdcto) * $detalle->deta_cant_prdcto * ($detalle->deta_porc_iva / 100));
+                    // $valor_x = $this->redondeo($ii);
+                    // echo "\nsin regalo-> $valor_x\n";
+
+                    // $iva = $this->redondeo(8979879.51);
+                    // dd($iva);
+
+                    array_push($lineas, array(
+                        "unit_measure_id" => 70,
+                        "invoiced_quantity" => $detalle->nota_cant_prdcto,
+                        "line_extension_amount" => $detalle->nota_valor_prdcto,
+                        "free_of_charge_indicator" => $free_of_charge_indicator,
+                        "allowance_charges" => array(
+                            0 => array(
+                                "charge_indicator" => false,
+                                "allowance_charge_reason" => "Discount",
+                                "amount" => 0,
+                                "base_amount" => "0"
+                            )
+                        ),
+                        "tax_totals" => array(
+                            0 => array(
+                                "tax_id" => 1,
+                                // "tax_amount" => $detalle->deta_iva_prdcto + $var,
+                                "tax_amount" => $detalle->nota_iva_prdcto,
+                                "taxable_amount" => $base,
+                                "percent" => $detalle->nota_porc_iva
+                            )
+
+                        ),
+
+                        "description" => $detalle->nota_desprdcto,
+                        "code" => $detalle->nota_codprdcto,
+                        "type_item_identification_id" => 3,
+                        "price_amount" => $detalle->nota_valor_prdcto,
+                        "base_quantity" => $detalle->nota_cant_prdcto,
+
+                        "unit_measure" => array(
+                            "code" => "94"
+                        )
+
+                    ));
+                }
+            }
+
+            $nota['debit_note_lines'] = $lineas;
+            // print_r($nota_d->compania);
             // die;
+
+
 
             $response = "";
-            $response = $client->request("POST", "debit-note/$trackPruebas", ['body' => json_encode($nota)]);
+            $response = $client->requestAsync("POST", "debit-note/$trackPruebas", ['body' => json_encode($nota)]);
 
-            // print_r($response->getBody()->getContents());
-            // die;
+            $response = $response->wait();
 
-            // $resp = json_decode($response->getBody()->getContents(), true);
-            $resp = $response->getBody()->getContents();
+            $resultado = $response->getBody()->getContents();
 
             $nombre_log = "log_nota_debito_";
-            Helper::crearLog($resp, $nombre_log);
+            Helper::crearLog($resultado, $nombre_log);
 
             $numeroActual++;
-            // return $resp['ResponseDian']['Envelope']['Body'];
+
+            $numero = $nota['number']; //numero de la nota
+            if ($response->getStatusCode() == 200) { //si el servidor respondio... verificamos el estado del mensaje
+                $resp = array();
+                $resp = json_decode($resultado, true);
+                // print_r($resp);
+                print_r($resp['message']);
+                echo "\n**********************************************************";
+                print_r($resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']);
+                $ruta_xml = $this->guardarComprimido($nota_d->compania->numnit, $nota_d->fact_cadv_numsuc, $resp['ZipBase64Bytes'], $numero);
+
+                if (array_key_exists('XmlParamsResponseTrackId', $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ErrorMessageList'])) {
+                    $mensajeError = $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ErrorMessageList']['XmlParamsResponseTrackId']['ProcessedMessage'];
+                    $codigoError = $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ErrorMessageList']['XmlParamsResponseTrackId']['SenderCode'];
+
+                    NotaDebitoRepository::insertTablaLogNd(
+                        $nota_d->nd_cadv_clase,
+                        $nota_d->nd_cadv_numdoc,
+                        $numero,
+                        $nota_d->nd_canc_nuoren,
+                        "{$resp['message']} - {$mensajeError} - {$codigoError}",
+                        $nota_d->nd_cadv_clase,
+                        $nota_d->nd_cadv_cufe,
+                        $nota_d->nd_canc_fecela,
+                        $nota_d->nd_hora_nota,
+                        $nota_d->nd_sucur,
+                        $nota_d->nd_canc_vlrnot,
+                        $nota_d->nd_canc_nitcli,
+                        $nota_d->nd_coddpto,
+                        $nota_d->nd_codmuni,
+                        '', //TRACKID nulo
+                        "2",
+                        $ruta_xml,
+                        "$numero.zip"
+                    );
+                    continue;
+                }
+
+                if (is_array($resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']) == false) { //respuesta esperada y correcta
+                    $t_id = $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']; // trackID
+
+                    NotaDebitoRepository::insertTablaLogNd(
+                        $nota_d->nd_cadv_clase,
+                        $nota_d->nd_cadv_numdoc,
+                        $numero,
+                        $nota_d->nd_canc_nuoren,
+                        "{$resp['message']}",
+                        $nota_d->nd_cadv_clase,
+                        $nota_d->nd_cadv_cufe,
+                        $nota_d->nd_canc_fecela,
+                        $nota_d->nd_hora_nota,
+                        $nota_d->nd_sucur,
+                        $nota_d->nd_canc_vlrnot,
+                        $nota_d->nd_canc_nitcli,
+                        $nota_d->nd_coddpto,
+                        $nota_d->nd_codmuni,
+                        $t_id,
+                        "1",
+                        $ruta_xml,
+                        "$numero.zip"
+                    );
+
+                    continue;
+                } else {
+
+                    NotaDebitoRepository::insertTablaLogNd(
+                        $nota_d->nd_cadv_clase,
+                        $nota_d->nd_cadv_numdoc,
+                        $numero,
+                        $nota_d->nd_canc_nuoren,
+                        "{$resp['message']} - {$mensajeError} - {$codigoError}",
+                        $nota_d->nd_cadv_clase,
+                        $nota_d->nd_cadv_cufe,
+                        $nota_d->nd_canc_fecela,
+                        $nota_d->nd_hora_nota,
+                        $nota_d->nd_sucur,
+                        $nota_d->nd_canc_vlrnot,
+                        $nota_d->nd_canc_nitcli,
+                        $nota_d->nd_coddpto,
+                        $nota_d->nd_codmuni,
+                        '',
+                        "2",
+                        $ruta_xml,
+                        "$numero.zip"
+                    );
+
+                    continue;
+                }
+                echo "\nbase 64 xml\n";
+                print_r($resp['ZipBase64Bytes']);
+            }
         }
         return "ok";
     }
@@ -435,9 +649,73 @@ class NotaDebitoController extends Controller
      @Descripcion: Metodo encargado de validar si el email
      es sintacticamente correcto
      @return:  
-     */    
+     */
     function is_valid_email($str)
     {
         return (false !== filter_var($str, FILTER_VALIDATE_EMAIL));
+    }
+
+    /*
+     @autor: Jhonatan W. ocampo
+     @Fecha: 30/10/2019
+     @Descripcion: Metodo encargado de redondear
+     @return:  numero sin decimales
+     */
+    public function redondeo($var)
+    {
+        // echo " valor-> $var ";
+        $numero_fra = explode('.', $var);
+        if (count($numero_fra) > 1) { //si hay decimales en el numero
+            if (strlen($numero_fra[1]) >= 2) {
+                if (substr($numero_fra[1], 0, 2) > 50) { //si el numero cuenta con mas de 2 decimales, solo se cogen 2 y se verifican si esos 2 son mas de 50
+                    return $numero_fra[0] + 1; //se redondea al numero siguiente
+                }
+                return $numero_fra[0]; //se deja redondea al numero de abajo
+            } else {
+                if ($numero_fra[1] > 5) { // solo tiene un decimal, y se verifica si es mayor a 5
+                    return $numero_fra[0] + 1; // se redonde por encima
+                }
+                if ($numero_fra[1] == 5) { //si el unico decimal que hay es 5, se procede hacer la revision del numero anterior
+                    $numero_precede = substr($numero_fra[0], -1);
+                    if ($numero_precede % 2 == 0) {
+                        return $numero_fra[0];
+                    } else {
+                        return $numero_fra[0] + 1;
+                    }
+                }
+
+                return $numero_fra[0]; //se redondea por debajo porque el unico numero decimal es menor a 5
+            }
+        } else { //no hay decimales
+            return $var;
+        }
+    }
+
+    /*
+     @autor: Jhonatan W. ocampo
+     @Fecha: 16/10/2019
+     @Descripcion: Metodo encargado de guardar los comprimidos en al ruta especifica
+     @return: string ruta LOG 
+     */
+    public function guardarComprimido($nitEmpr2, $sucursal, $xml_zip, $nombre_archivo)
+    {
+
+        $fecha = Carbon::now();
+        $anio = $fecha->format('Y');
+        $mes = $fecha->format('m');
+        $dia = $fecha->format('d');
+
+        $rutaFinalXML_compri = "XML_NOTAS_DEBITO/$nitEmpr2/$sucursal/$anio/$mes/$dia/";
+
+        if (!file_exists($rutaFinalXML_compri)) { //si no existe la carpeta la crea
+            if (mkdir($rutaFinalXML_compri, 0777, true) === false) {
+                echo "carpeta no creada";
+            }
+        }
+
+        $zip_contents = $xml_zip;
+        $file = $rutaFinalXML_compri . $nombre_archivo . '.zip';
+        file_put_contents($file, base64_decode(base64_decode($zip_contents)));
+        return $file;
     }
 }
