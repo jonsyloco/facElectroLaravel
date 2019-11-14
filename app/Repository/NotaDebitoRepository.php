@@ -78,4 +78,39 @@ class NotaDebitoRepository
 
     return $log->save();
   }
+
+    /*
+     @autor: Jhonatan W. ocampo
+     @Fecha: 16/10/2019
+     @Descripcion: Metodo encargado de obtener las facturas en estado 1 para obtener le resultado real de la DIAN
+     @return: array 
+     */
+    public static function obtenerNotas()
+    {
+        $notas = TablaLogNd::where('td_estado', '1')
+            ->whereNotNull('td_trackid')
+            ->whereRaw("td_trackid <> ''")
+            // ->limit(3)
+            ->get();
+        // ->toSql();
+
+        return $notas;
+    }
+
+      /*
+     @autor: Jhonatan W. ocampo
+     @Fecha: 16/10/2019
+     @Descripcion: Metodo encargado de actualizar el estado en la tabla de LOGS
+     de las notas debito, este estado y descripcion son actualizados, justo despues de
+     enviar a preguntar con el TRACKID si la nota fue aceptada 
+     @return:  ??
+     */
+    public static function updateEstadoNota($id, $estado, $observacion, $cufe = '')
+    {
+        TablaLogNd::where('td_consec', $id)->update([
+            'td_estado' => $estado,
+            'td_observ' => $observacion,
+            'td_cufe' => $cufe,
+        ]);
+    }
 }

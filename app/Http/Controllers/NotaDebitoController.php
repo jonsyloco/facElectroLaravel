@@ -219,7 +219,7 @@ class NotaDebitoController extends Controller
         $notas = NotaDebitoRepository::getNotasEnviar();
         // print_r($notas);die;
 
-        $numeroActual = 94;
+        $numeroActual = 192;
 
         // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
         $trackPruebas = "ecec6006-07eb-4946-be3c-7a3a17e4b3f1"; //identificador de pruebas
@@ -484,6 +484,10 @@ class NotaDebitoController extends Controller
 
 
                 if ($free_of_charge_indicator == false) { //no hay regalo
+
+                    if ($detalle->nota_porc_iva == 0) { //no tiene iba
+                        $base = 0;
+                    }
 
 
                     // $ii = (($detalle->deta_base_prdcto) * $detalle->deta_cant_prdcto * ($detalle->deta_porc_iva / 100));

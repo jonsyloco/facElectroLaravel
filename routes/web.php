@@ -87,11 +87,24 @@ Route::get('not_deb/sendNotaDebito2', [ //envio de notas full
 ]);
 
 
+/*********** Recupera el estado de las notas debito*********/
+Route::get('getNotD/', [
+    'uses'    => 'ResultNotaDController@index',
+    'as'    => 'getNotD.index'
+]);
+Route::get('getNotD/gNotaD', [
+    'uses'    => 'ResultNotaDController@obtenerResulNotaPendientes',
+    'as'    => 'getNotD.gNotaD'
+]);
+
+
+
 
 
 /*********************************ALIAS*******************************/
 Route::Resource('fac', 'FacturaController');
 Route::Resource('getFac', 'ResultFacturasController'); //recuperar facturas
+Route::Resource('getNotD', 'ResultNotaDController'); //recuperar notas debito
 Route::Resource('not_cred', 'NotaCreditoController');
 Route::Resource('not_deb', 'NotaDebitoController');
 Route::get('/', 'FacturaController@index');
