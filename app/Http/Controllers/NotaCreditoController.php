@@ -232,9 +232,11 @@ class NotaCreditoController extends Controller
 
 
         $notas = NotaCreditoRepository::getNotasEnviar();
-        $numeroActual = 28;
+        $numeroActual = 29;
 
-        $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
+        // $trackPruebas = "ff244060-36c7-4da2-a228-016827608afe"; //identificador de pruebas
+        $trackPruebas = "15fd46ec-ba52-49a7-ac65-c2fc215081cf"; //identificador de pruebas
+
 
         $token = "FHMoDO27s4eFseLijLiDibSjKuAn3r1mBHmrPcaaZOZbz1ohy4U9kYfb6fXsSYrrWIFfdwVCCYH2MZpl";
 
@@ -258,7 +260,7 @@ class NotaCreditoController extends Controller
             /**datos del certificado */
             $nota['certificate_name'] = "8900016003.p12";
             $nota['certificate_pass'] = "7pC9u9bCEV";
-            $nota['sw_identifier'] = "c8784166-6c81-4361-99aa-15c28a523d41";
+            $nota['sw_identifier'] = "0eb9f032-c0f8-4140-8f1e-afe5188f3834";
             $nota['sw_pin'] = "14082";
             $nota['url_ws'] = "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc";
             $nota['identification_number'] = "890001600";
@@ -322,6 +324,7 @@ class NotaCreditoController extends Controller
                 $cliente['barrio'] = utf8_encode(trim($cliData[4]));
                 $cliente['telefono'] = trim($cliData[13]);
                 $cliente['dv'] = trim($cliData[14]);
+                $cliente['email'] = trim($cliData[15]);
                 $cliente['tpDoc'] = trim($cliData[2]);
                 $cliente['nombres'] = trim($cliData[0]);
                 if ($cliente['tpDoc'] == 31) { //si el cliente es juridico
@@ -338,14 +341,14 @@ class NotaCreditoController extends Controller
                 "name" => $cliente['razon_social'],
                 "phone" => $cliente['telefono'],
                 "address" => $cliente['dir'],
-                "email" => "test@test.com", //HAY QUE TRAER EL MAIL
+                "email" => $cliente['email'], //HAY QUE TRAER EL MAIL
                 "merchant_registration" => "No tiene"
             );
 
             //definicion de los impuestos de una NOTA IVA,RETEIVA,RETEFUENTE
             $array_impuestos = array();
             $array_impuestos = $this->getImpuestos($nota_c);
-            
+
             // die(" - {$nota_c->nc_vlrtotal_nota}");
 
             $tax_exclusive_amount = 0; //base para calcular los impuestos de la NOTA
@@ -394,20 +397,101 @@ class NotaCreditoController extends Controller
             );
 
             $response = "";
-            $response = $client->request("POST", "credit-note/$trackPruebas", ['body' => json_encode($nota)]);
 
-            // print_r($response->getBody()->getContents());
-            // die;
+            $response = $client->requestAsync("POST", "credit-note/$trackPruebas", ['body' => json_encode($nota)]);
+            $response = $response->wait();
 
-            // $resp = json_decode($response->getBody()->getContents(), true);
-            $resp = $response->getBody()->getContents();
+            $resultado = $response->getBody()->getContents();
 
             $nombre_log = "log_nota_credito_";
-            Helper::crearLog($resp, $nombre_log);
+            Helper::crearLog($resultado, $nombre_log);
 
             $numeroActual++;
-            // return $resp['ResponseDian']['Envelope']['Body'];
+
+            $numero = $nota['number']; //numero de la nota
+
+            if ($response->getStatusCode() == 200) { //si el servidor respondio... verificamos el estado del mensaje
+
+                $resp = array();
+                $resp = json_decode($resultado, true);
+                // print_r($resp);
+                print_r($resp['message']);
+                echo "\n**********************************************************";
+                print_r($resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']);
+                $ruta_xml = $this->guardarComprimido($nota_c->numnit, $nota_c->nc_sucur, $resp['ZipBase64Bytes'], $numero);
+
+                if (array_key_exists('XmlParamsResponseTrackId', $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ErrorMessageList'])) {
+                    $mensajeError = $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ErrorMessageList']['XmlParamsResponseTrackId']['ProcessedMessage'];
+                    $codigoError = $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ErrorMessageList']['XmlParamsResponseTrackId']['SenderCode'];
+
+                    NotaCreditoRepository::insertTablaLogNc(
+                        $nota_c->nc_numfact,
+                        $numero,
+                        "{$resp['message']} - {$mensajeError} - {$codigoError}",
+                        $nota_c->nc_cufe_fact,
+                        $nota_c->nc_fenot,                        
+                        $nota_c->nc_sucur,
+                        $nota_c->nc_vlr_basenota,
+                        $nota_c->nc_nitcli,
+                        $nota_c->nc_coddpto,
+                        $nota_c->nc_codmuni,
+                        '', //TRACKID nulo
+                        "2",
+                        $ruta_xml,
+                        "$numero.zip"
+                    );
+                    continue;
+                }
+
+                if (is_array($resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']) == false) { //respuesta esperada y correcta
+                    $t_id = $resp['ResponseDian']['Envelope']['Body']['SendTestSetAsyncResponse']['SendTestSetAsyncResult']['ZipKey']; // trackID
+
+
+                    NotaCreditoRepository::insertTablaLogNc(
+                        $nota_c->nc_numfact,
+                        $numero,
+                        "{$resp['message']}",
+                        $nota_c->nc_cufe_fact,
+                        $nota_c->nc_fenot,
+                        $nota_c->nc_sucur,
+                        $nota_c->nc_vlr_basenota,
+                        $nota_c->nc_nitcli,
+                        $nota_c->nc_coddpto,
+                        $nota_c->nc_codmuni,
+                        $t_id,
+                        "1",
+                        $ruta_xml,
+                        "$numero.zip"
+                    );
+
+                    continue;
+                } else {
+
+
+                    NotaCreditoRepository::insertTablaLogNc(
+                        $nota_c->nc_numfact,
+                        $numero,
+                        "{$resp['message']} - {$mensajeError} - {$codigoError}",
+                        $nota_c->nc_cufe_fact,
+                        $nota_c->nc_fenot,
+                        $nota_c->nc_sucur,
+                        $nota_c->nc_vlr_basenota,
+                        $nota_c->nc_nitcli,
+                        $nota_c->nc_coddpto,
+                        $nota_c->nc_codmuni,
+                        '', //TRACKID nulo
+                        "2",
+                        $ruta_xml,
+                        "$numero.zip"
+                    );
+
+                    continue;
+                }
+                echo "\nbase 64 xml\n";
+                print_r($resp['ZipBase64Bytes']);
+            }
         }
+        return "ok";
     }
 
     /*
@@ -423,10 +507,11 @@ class NotaCreditoController extends Controller
         $array = array();
 
         if ($nota->nc_porciva != 0 && $nota->nc_iva != 0) { //IVA
-            $iva=0;
-            $iva= $nota->nc_vlr_basenota * ($nota->nc_porciva/100);
-            $iva=Helper::redondearDian($iva);
-            $nota->nc_iva=round($iva); /**re-asignacion IVA*/
+            $iva = 0;
+            $iva = $nota->nc_vlr_basenota * ($nota->nc_porciva / 100);
+            $iva = Helper::redondearDian($iva);
+            $nota->nc_iva = round($iva);
+            /**re-asignacion IVA*/
 
             array_push($array, array(
                 "tax_id" => 1,
@@ -435,14 +520,17 @@ class NotaCreditoController extends Controller
                 "percent" => $nota->nc_porciva
             ));
         }
-        if ($nota->nc_porc_reteiva != 0 && $nota->nc_reteiva != 0) { //RETEIVA
+        if ($nota->nc_porc_reteiva != 0 && $nota->nc_reteiva != 0 && $nota->nc_porciva != 0) { //RETEIVA
 
-            array_push($array, array(
-                "tax_id" => 5,
-                "tax_amount" => $nota->nc_reteiva,
-                "taxable_amount" => $nota->nc_vlr_basenota,
-                "percent" => $nota->nc_porc_reteiva
-            ));
+            array_push(
+                $array,
+                array(
+                    "tax_id" => 5,
+                    "tax_amount" => $nota->nc_reteiva,
+                    "taxable_amount" => $nota->nc_iva,
+                    "percent" => $nota->nc_porc_reteiva
+                )
+            );
         }
         if ($nota->nc_retefuente != 0 && $nota->nc_porc_retefuente != 0) { //retefuente
 
@@ -454,8 +542,37 @@ class NotaCreditoController extends Controller
             ));
         }
 
-        $nota->nc_vlrtotal_nota= $nota->nc_iva + $nota->nc_vlr_basenota; /**re-asignando el total */
+        $nota->nc_vlrtotal_nota = $nota->nc_iva + $nota->nc_vlr_basenota;
+        /**re-asignando el total */
 
         return $array;
+    }
+
+    /*
+     @autor: Jhonatan W. ocampo
+     @Fecha: 16/10/2019
+     @Descripcion: Metodo encargado de guardar los comprimidos en al ruta especifica
+     @return: string ruta LOG 
+     */
+    public function guardarComprimido($nitEmpr2, $sucursal, $xml_zip, $nombre_archivo)
+    {
+
+        $fecha = Carbon::now();
+        $anio = $fecha->format('Y');
+        $mes = $fecha->format('m');
+        $dia = $fecha->format('d');
+
+        $rutaFinalXML_compri = "XML_NOTAS_CREDITO/$nitEmpr2/$sucursal/$anio/$mes/$dia/";
+
+        if (!file_exists($rutaFinalXML_compri)) { //si no existe la carpeta la crea
+            if (mkdir($rutaFinalXML_compri, 0777, true) === false) {
+                echo "carpeta no creada";
+            }
+        }
+
+        $zip_contents = $xml_zip;
+        $file = $rutaFinalXML_compri . $nombre_archivo . '.zip';
+        file_put_contents($file, base64_decode(base64_decode($zip_contents)));
+        return $file;
     }
 }

@@ -8,7 +8,7 @@ class NotaCredito extends Model
 {
 
     public $connection = 'ibg_100_7';
-    protected $table = "nota_credito";
+    protected $table = "vp_nota_credito";
     protected $primarykey = "nc_consec";
     public $timestamps = false;
 

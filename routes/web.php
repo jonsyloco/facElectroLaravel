@@ -97,6 +97,16 @@ Route::get('getNotD/gNotaD', [
     'as'    => 'getNotD.gNotaD'
 ]);
 
+/*********** Recupera el estado de las notas credito*********/
+Route::get('getNotC/', [
+    'uses'    => 'ResultNotaCrController@index',
+    'as'    => 'getNotC.index'
+]);
+Route::get('getNotC/gNotaC', [
+    'uses'    => 'ResultNotaCrController@obtenerResulNotaPendientes',
+    'as'    => 'getNotC.gNotaC'
+]);
+
 
 
 
@@ -105,6 +115,7 @@ Route::get('getNotD/gNotaD', [
 Route::Resource('fac', 'FacturaController');
 Route::Resource('getFac', 'ResultFacturasController'); //recuperar facturas
 Route::Resource('getNotD', 'ResultNotaDController'); //recuperar notas debito
+Route::Resource('getNotC', 'ResultNotaCrController'); //recuperar notas credito
 Route::Resource('not_cred', 'NotaCreditoController');
 Route::Resource('not_deb', 'NotaDebitoController');
 Route::get('/', 'FacturaController@index');
